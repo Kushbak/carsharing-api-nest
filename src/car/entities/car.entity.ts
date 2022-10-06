@@ -1,6 +1,7 @@
 import { Rent } from 'src/rent/entities/rent.entity'
-import { Column, ManyToOne, PrimaryGeneratedColumn } from 'typeorm'
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm'
 
+@Entity()
 export class Car {
   @PrimaryGeneratedColumn()
   id: number
@@ -17,12 +18,12 @@ export class Car {
   @Column()
   vin: string
 
-  @ManyToOne(() => Rent, (rent) => rent.car)
-  current_rent?: Rent
+  @OneToMany(() => Rent, (rent) => rent.car)
+  current_rent?: [Rent]
 
   @Column({ default: 0 })
   total_distance: number
 
-  @Column()
+  @Column({ nullable: true })
   last_rent_date?: Date
 }

@@ -8,7 +8,7 @@ export class UpdateCarDto extends PartialType(CreateCarDto) {
   mark: string
   license_plate: string
   vin: string
-  current_rent?: Rent
+  current_rent?: [Rent]
   total_distance: number
   last_rent_date: Date
 }

@@ -1,18 +1,18 @@
 import { Car } from 'src/car/entities/car.entity'
-import { Tariff } from 'src/tariff/entities/tariff.entity'
 import {
   Column,
   CreateDateColumn,
+  Entity,
   ManyToOne,
-  OneToMany,
   PrimaryGeneratedColumn,
 } from 'typeorm'
 
+@Entity()
 export class Rent {
   @PrimaryGeneratedColumn()
   id: number
 
-  @OneToMany(() => Car, (car) => car.current_rent)
+  @ManyToOne(() => Car, (car) => car.current_rent)
   car: Car
 
   @CreateDateColumn()
@@ -21,9 +21,9 @@ export class Rent {
   @Column()
   end_date: Date
 
-  @ManyToOne(() => Tariff, (tariff) => tariff)
-  tariff: Tariff
-
   @Column()
-  distance: number
+  tariff: number
+
+  @Column({ type: 'float', nullable: true })
+  total_sum?: number
 }
