@@ -1,2 +1,2 @@
-export const WEEKDAYS = [6, 7]
+export const WEEKDAYS = [5, 6]
 export const asd = []

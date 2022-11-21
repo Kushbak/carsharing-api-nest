@@ -12,16 +12,28 @@ export class CarService {
     private readonly carRepository: Repository<Car>,
   ) {}
 
-  async create(newCar: CreateCarDto) {
-    return await this.carRepository.save(newCar)
-  }
-
   async findAll() {
-    return await this.carRepository.find()
+    return await this.carRepository.find({
+      relations: {
+        rents: true,
+      },
+    })
   }
 
   async findOne(id: number) {
-    return await this.carRepository.findOne({ where: { id } })
+    return await this.carRepository.findOne({
+      where: { id },
+      relations: {
+        rents: true,
+      },
+    })
+  }
+
+  async create(newCar: CreateCarDto) {
+    Object.assign(newCar, {
+      rents: [],
+    })
+    return await this.carRepository.save(newCar)
   }
 
   async update(id: number, updateCarDto: UpdateCarDto) {

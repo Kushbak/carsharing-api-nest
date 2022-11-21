@@ -1,14 +1,20 @@
 import { PartialType } from '@nestjs/mapped-types'
-import { Rent } from 'src/rent/entities/rent.entity'
+import { ApiProperty } from '@nestjs/swagger'
 import { CreateCarDto } from './create-car.dto'
 
 export class UpdateCarDto extends PartialType(CreateCarDto) {
-  id: number
+  @ApiProperty()
   model: string
+  @ApiProperty()
   mark: string
+  @ApiProperty()
   license_plate: string
+  @ApiProperty()
   vin: string
-  current_rent?: [Rent]
+  @ApiProperty()
+  rents: []
+  @ApiProperty()
   total_distance: number
-  last_rent_date: Date
+  @ApiProperty()
+  is_available: boolean
 }

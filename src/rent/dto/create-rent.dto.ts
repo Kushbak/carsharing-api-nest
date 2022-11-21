@@ -1,10 +1,18 @@
-import { Car } from 'src/car/entities/car.entity'
+import { ApiProperty } from '@nestjs/swagger'
 
 export class CreateRentDto {
-  car: Car
+  @ApiProperty()
+  car_id: number
+  @ApiProperty()
   start_date: Date
+  @ApiProperty()
   end_date: Date
+  @ApiProperty({
+    enum: [1, 2, 3],
+  })
   tariff: number
-  distance?: number
+  @ApiProperty()
+  distance: number
+  @ApiProperty({ readOnly: true })
   total_sum?: number
 }

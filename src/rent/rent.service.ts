@@ -40,33 +40,37 @@ export class RentService {
 
   private checkForWeekdayRent(rent: CreateRentDto) {
     const start_date_weekday = dayjs(rent.start_date).weekday()
-    console.log('start_date_weekday', dayjs(rent.start_date).toDate())
     if (WEEKDAYS.includes(start_date_weekday)) {
       throw new BadRequestException(`You may not start a rent on a weekend`)
     }
     const end_date_weekday = dayjs(rent.end_date).weekday()
+    console.log({ start_date_weekday, end_date_weekday })
     if (WEEKDAYS.includes(end_date_weekday)) {
       throw new BadRequestException(`You may not end a rent on a weekend`)
     }
   }
 
   private async checkForPauseBetweenRent(rent: CreateRentDto) {
-    const carToRent = await this.carRepository.findOneBy({
-      id: rent.car.id,
+    const carToRent = await this.carRepository.findOne({
+      where: {
+        id: rent.car_id,
+      },
+      relations: {
+        rents: true,
+      },
     })
-    if (!carToRent) {
-      throw new NotFoundException(`Car with id ${rent.car.id} not exists`)
-    }
 
-    const daysBetweenLastRent = dayjs(rent.start_date).diff(
-      carToRent.last_rent_date,
-      'day',
-    )
-
-    if (carToRent.last_rent_date && daysBetweenLastRent < 3) {
-      throw new BadRequestException(
-        'The pause between bookings should be 3 days',
+    if (carToRent.rents.length) {
+      const daysBetweenLastRent = dayjs(rent.start_date).diff(
+        carToRent.rents[carToRent.rents.length - 1].end_date,
+        'day',
       )
+
+      if (daysBetweenLastRent < 3) {
+        throw new BadRequestException(
+          'The pause between bookings should be 3 days',
+        )
+      }
     }
   }
 
@@ -90,44 +94,50 @@ export class RentService {
   }
 
   async create(createRentDto: CreateRentDto): Promise<Rent> {
-    const car = await this.carRepository.findOneBy({ id: createRentDto.car.id })
-    if (car.current_rent) {
-      throw new Error('Car is not available')
-    }
-
-    createRentDto.start_date = new Date(createRentDto.start_date)
-    createRentDto.end_date = new Date(createRentDto.end_date)
-    this.checkForMaxRentDay(createRentDto)
-    this.checkForWeekdayRent(createRentDto)
-    await this.checkForPauseBetweenRent(createRentDto)
-
-    const rentDaysAmount = dayjs(createRentDto.end_date).diff(
-      createRentDto.start_date,
-      'day',
-    )
-
-    const tariff = this.tariffs.find((item) => item.id === createRentDto.tariff)
-    createRentDto.total_sum = rentDaysAmount * tariff.price
-
-    if (rentDaysAmount > 2) {
-      createRentDto.total_sum = this.sumWithDiscount(
-        createRentDto.total_sum,
-        rentDaysAmount,
+    const car = await this.carRepository.findOne({
+      where: { id: createRentDto.car_id },
+    })
+    if (!car) {
+      throw new NotFoundException(
+        `Car with id ${createRentDto.car_id} not exists`,
       )
     }
+    if (!car.is_available) {
+      throw new BadRequestException('Car is not available')
+    }
 
-    const newRent = await this.rentRepository.save(createRentDto)
-    const updatedCar = Object.assign(car, {
-      current_rent: [newRent],
-      last_rent_date: createRentDto.end_date,
-    })
+    const rent = { ...createRentDto, car }
+    console.log({ rent, createRentDto, car })
 
-    await this.carRepository.save(updatedCar)
+    rent.start_date = new Date(createRentDto.start_date)
+    rent.end_date = new Date(createRentDto.end_date)
+    this.checkForMaxRentDay(rent)
+    this.checkForWeekdayRent(rent)
+    await this.checkForPauseBetweenRent(rent)
+
+    const rentDaysAmount = dayjs(rent.end_date).diff(rent.start_date, 'day')
+
+    const tariff = this.tariffs.find((item) => item.id === rent.tariff)
+    rent.total_sum = rentDaysAmount * tariff.price
+
+    if (rentDaysAmount > 2) {
+      rent.total_sum = this.sumWithDiscount(rent.total_sum, rentDaysAmount)
+    }
+
+    const newRent = await this.rentRepository.save(rent)
+
+    car.is_available = false
+    car.total_distance += rent.distance
+    await this.carRepository.save(car)
     return newRent
   }
 
   async findAll(): Promise<Rent[]> {
-    return await this.rentRepository.find()
+    return await this.rentRepository.find({
+      relations: {
+        car: true,
+      },
+    })
   }
 
   async findActive(): Promise<Rent[]> {
@@ -138,13 +148,28 @@ export class RentService {
       where: {
         end_date: Raw((alias) => `${alias} > NOW()`),
       },
+      relations: {
+        car: true,
+      },
     })
   }
 
   async remove(id: number): Promise<void> {
-    const candidate = await this.rentRepository.findOneBy({ id })
+    const candidate = await this.rentRepository.findOne({
+      where: { id },
+      relations: { car: true },
+    })
     if (!candidate) {
       throw new NotFoundException(`Rent with id ${id} not exists`)
+    }
+    if (candidate.car) {
+      const car = {}
+      Object.assign(car, candidate.car)
+      Object.assign(car, {
+        is_available: true,
+      })
+      console.log({ car, candidate })
+      await this.carRepository.save(car)
     }
     await this.rentRepository.remove(candidate)
   }
